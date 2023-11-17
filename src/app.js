@@ -1,63 +1,73 @@
 import express from "express";
 
 const app = express();
-app.use(express.urlencoded({ extended: true})) // para que funcione la data que llegue de query entre otras funciones de envio y recepcion de datos
+app.use(express.json()); // Asegúrate de usar express.json() para poder manejar JSON en el body de las peticiones POST y PUT
+app.use(express.urlencoded({ extended: true })); // Para manejar URL encoded data
+
 const puerto = 8080;
 
-const usuarios = [
-    {nombre : 'Mariano', edad: 33, id: 1},
-    {nombre : 'Guille', edad: 40, id: 2},
-    {nombre : 'Andrea', edad: 33, id: 3},
-    {nombre : 'Ramon', edad: 23, id: 4},
-    {nombre : 'Antonella', edad: 21, id: 5},
-]
+// Frase inicial
+let frase = "Frase inicial";
 
-app.get('/', (req, res) => {
-    console.log('hola desde express');
-
-    const numero_1 = 10;
-    const numero_2 = 20;
-
-    res.send(`Hola desde raiz ${numero_1 + numero_2 +100}`);
+// GET '/api/frase': devuelve un objeto que como campo 'frase' contenga la frase completa
+app.get("/api/frase", (req, res) => {
+  res.json({ frase });
 });
 
-app.get('/saludo', (req, res) => {
-    console.log('hola desde express');
-    res.json({
-        nombre: 'Mariano',
-        apellido: 'Macias',
-        edad: 33,
-        mail: 'mariano@mail.com',
-    });
+// GET '/api/palabras/:pos': devuelve un objeto que como campo 'buscada' contenga la palabra hallada en la frase en la posición dada
+app.get("/api/palabras/:pos", (req, res) => {
+  const pos = parseInt(req.params.pos);
+  const palabras = frase.split(" ");
+  if (pos > 0 && pos <= palabras.length) {
+    res.json({ buscada: palabras[pos - 1] });
+  } else {
+    res.status(404).send("Posición fuera de rango");
+  }
 });
 
-app.get('/dataPorParams/:data', (req, res) => { //localhost:8080/dataPorParams/NOMBRE_A_ESCRIBIR
-    const data = req.params.data;
-    console.log('Data :', data);
-    res.send(`Bienvenido a la web ${data}, tu nombre me llego por Params`)
+// POST '/api/palabras': recibe una palabra y la agrega al final de la frase
+app.post("/api/palabras", (req, res) => {
+  const { palabra } = req.body;
+  if (palabra) {
+    frase += ` ${palabra}`;
+    res.json({ agregada: palabra, pos: frase.split(" ").length });
+  } else {
+    res.status(400).send("No se proporcionó una palabra válida");
+  }
 });
 
-app.get('/busquedaUsuarioPorParamsPorID/:id', (req, res) => { //localhost:8080/dataPorParams/NOMBRE_A_ESCRIBIR
+// PUT '/api/palabras/:pos': recibe una palabra y reemplaza en la frase aquella hallada en la posición dada
+app.put("/api/palabras/:pos", (req, res) => {
+  const pos = parseInt(req.params.pos);
+  const { palabra } = req.body;
+  let palabras = frase.split(" ");
+
+  if (palabra && pos > 0 && pos <= palabras.length) {
+    const anterior = palabras[pos - 1];
+    palabras[pos - 1] = palabra;
+    frase = palabras.join(" ");
+    res.json({ actualizada: palabra, anterior });
+  } else {
+    res.status(400).send("Posición fuera de rango o palabra no proporcionada");
+  }
+});
+
+// DELETE '/api/palabras/:pos': elimina una palabra en la frase según la posición dada
+app.delete("/api/palabras/:pos", (req, res) => {
+  const pos = parseInt(req.params.pos);
+  let palabras = frase.split(" ");
+
+  if (pos > 0 && pos <= palabras.length) {
     
-    // 1ER tomo los datos por parametro
-    const id = req.params.id;
-    console.log('el Id es :', id); //muestro por consola
-
-    //Busco el usuario
-    const encontrado = usuarios.find((user) => user.id == id);
-
-    // si lo encuentro lo muestro sino doy mensaje de no encontrado
-    if(encontrado){
-        res.json(encontrado)
-    }else{
-        res.send('No se encontro el usuario');
-    }
+    // palabras = palabras.filter((_, index) => index !== pos - 1); // borrado con metodo filter
+    palabras.splice(pos - 1, 1); // borrado con metodo splice
+    frase = palabras.join(" ");
+    res.json({ eliminada: pos, frase });
+  } else {
+    res.status(404).send("Posición fuera de rango");
+  }
 });
 
-app.get('/dataPorQuery',(req, res) => { //localhost:8080/dataPorQuery?nombre=mariano&apellido=macias   (en el ejemplo vea se divide la ruta contra las variables con ? y se agrega variables con &)
-    const nombre = req.query.nombre;
-    const apellido = req.query.apellido
-    res.send(`Bienvenido a la web ${nombre}, ${apellido}, tu nombre me llego por Query`)
-});
-
-app.listen(puerto, () => console.log(`Servidor escuchando en el ${puerto}`));
+app.listen(puerto, () =>
+  console.log(`Servidor escuchando en el puerto ${puerto}`)
+);
